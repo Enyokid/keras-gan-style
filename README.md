@@ -22,7 +22,7 @@ Results
 -----
 Using different datasets and different parameter to train the models, you can get different image styles. Here is a simple example
 ![]
-(https://github.com/Enyokid/keras-gan-style/raw/master/results/result.jpg)  
+(https://github.com/Enyokid/keras-gan-style/blob/48ec97aa2d20cec02edc19f8db05cbf476973d5d/sample.jpg)  
 
 Acknowledgment
 -----
