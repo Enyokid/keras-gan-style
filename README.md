@@ -7,7 +7,7 @@ Requirements
 -----
 python 3.6  
 
-tensorflow-gpu>=2.0 (ubuntu, GPU 2080Ti , cuda 9.0, cudnn 7.1.3)  
+tensorflow-gpu>=2.0(ubuntu, GPU 2080Ti)  
 
 opencv  
 
