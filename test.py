@@ -32,7 +32,7 @@ for p in range(len(data_list)):
     #compile model
     train_G_model = train_G_net(inshape)
     G_model = tf.keras.models.Model(inputs=train_G_model.layers[0].input,outputs=train_G_model.layers[1].output)
-    G_model.load_weights('models/G_weights.h5')
+    G_model.load_weights('models/G_weights_pretrain.h5')
     #读取图片
     src = cv.imread(img_path)
     rawsrc = cv.resize(src,(w,h))

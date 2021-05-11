@@ -26,7 +26,7 @@ def inited_G_generator(data_path,h,w,batch_size,val):
             img_path = data_path + '/' + load_list[i]
             rawsrc = cv.imread(img_path)
             #处理与写入
-            src = 1/255.0 * rawsrc
+            src = 1/127.5 * rawsrc - 1.0
             X[i,...] = src
         yield (X,Y)
 
