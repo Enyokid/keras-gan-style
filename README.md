@@ -25,7 +25,9 @@ Usage
 Results
 -----
 Using different datasets and different parameter to train the models, you can get different image styles. Here is a simple example
-![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/sample.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/sample_1.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/sample_2.jpg)
+
 
 Acknowledgment
 -----
