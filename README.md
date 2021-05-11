@@ -25,7 +25,7 @@ Usage
 Results
 -----
 Using different datasets and different parameter to train the models, you can get different image styles.  
-Photo to Anime Style.
+The effect of the model is as follows(convert photo to Anime Style).
 ![image](https://github.com/Enyokid/keras-gan-style/blob/main/test_img/1.jpg)
 ![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/1.jpg)
 ![image](https://github.com/Enyokid/keras-gan-style/blob/main/test_img/2.jpg)
