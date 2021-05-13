@@ -14,7 +14,6 @@ import argparse
 
 h,w = 256, 256
 inshape = (h, w, 3)
-
 def Conv2DNormLReLU(x, k_num, k_size, padding_type, name_id):
     x = layers.Conv2D(k_num, k_size, strides=1, padding=padding_type,use_bias=None,kernel_initializer='he_normal',
                activation=None, name=name_id, trainable=True)(x)
@@ -86,13 +85,11 @@ def inited_G_net(inshape):
     real_img = G_net_model.input#get the input_img
     gen_img = G_net_model.output#layers[75] is the G_net's output
     
-    vgg_model = vgg_net(inshape)#layers[78] is the vggmodel 
+    vgg_model = vgg_net(inshape)#layers[78] is the vggmodel
 
     #get the vgg_maps
-    real_img_255 = layers.Lambda(lambda x: (x + 1) * 127.5)(real_img)
-    gen_img_255 = layers.Lambda(lambda x: (x + 1) * 127.5)(gen_img)    
-    real_vgg_map = vgg_model(real_img_255)
-    gen_vgg_map = vgg_model(gen_img_255)
+    real_vgg_map = vgg_model(real_img)
+    gen_vgg_map = vgg_model(gen_img)
     
     output=layers.concatenate([real_vgg_map, gen_vgg_map], axis=-1)
     return tf.keras.models.Model(inputs=real_img, outputs=output)
@@ -104,27 +101,6 @@ def inited_G_loss(_, y_pred):
     loss = mae(real_vgg_map, gen_vgg_map)
     return loss
 
-def train_G_net(inshape):
-    G_net_model = G_net(inshape)#load model
-
-    real_img = G_net_model.input
-    anie_gray = layers.Input(shape=inshape,name = 'anie_gray')
-    gen_img = G_net_model(real_img)
-
-    vgg_model = vgg_net(inshape)
-    #get the vgg_maps
-    real_img_255 = layers.Lambda(lambda x: (x + 1) * 127.5)(real_img)
-    anie_gray_255 = layers.Lambda(lambda x: (x + 1) * 127.5)(anie_gray)    
-    gen_img_255 = layers.Lambda(lambda x: (x + 1) * 127.5)(gen_img)
-
-    real_vgg_map = vgg_model(real_img_255)
-    anie_vgg_map = vgg_model(anie_gray_255)
-    gen_vgg_map = vgg_model(gen_img_255)
-
-    output=layers.concatenate([real_vgg_map,gen_vgg_map,anie_vgg_map], axis=-1)
-
-    gen_img_logit = layers.Input((inshape[0]//4,inshape[1]//4,1),name = 'gen_img_logit')
-    return tf.keras.models.Model(inputs=[real_img,anie_gray,gen_img_logit], outputs=[output,gen_img_logit])
 
 def gram(x):
     shape_x = tf.shape(x)
@@ -133,7 +109,7 @@ def gram(x):
     x = tf.reshape(x, [b, -1, c])
     return tf.matmul(tf.transpose(x, [0, 2, 1]), x) / tf.cast((tf.size(x) // b), tf.float32)
 
-def train_G_loss(_, y_pred):    
+def style_loss(_, y_pred):    
     real_vgg_map = y_pred[:,:,:,:512]
     gen_vgg_map = y_pred[:,:,:,512:1024]
     gray_vgg_map = y_pred[:,:,:,1024:]
@@ -144,12 +120,21 @@ def train_G_loss(_, y_pred):
 
     return 1.5*c_loss + 2.8*s_loss
 
-def Gan_loss(y_true, y_pred):    
-    #
-    mse = tf.keras.losses.MeanSquaredError()
-    loss = mse(y_true, y_pred)
+def color_loss(_, y_pred):    
+    real_img = y_pred[:,:,:,:3]
+    gen_img = y_pred[:,:,:,3:6]
+    smo_img = y_pred[:,:,:,6:]
 
-    return 300*loss
+    mae = tf.keras.losses.MeanAbsoluteError()
+    hub = tf.keras.losses.Huber(delta=1.0, reduction="auto", name="huber_loss")
+
+    #
+    yuv_real = tf.image.rgb_to_yuv((real_img + 1.0)/2.0)
+    yuv_gen = tf.image.rgb_to_yuv((gen_img + 1.0)/2.0)
+
+    color_loss = mae(yuv_real[:,:,:,0], yuv_gen[:,:,:,0]) + hub(yuv_real[:,:,:,1],yuv_gen[:,:,:,1]) + hub(yuv_real[:,:,:,2],yuv_gen[:,:,:,2])
+    return 10*color_loss
+
 
 
 def D_net(inshape):
@@ -188,20 +173,5 @@ def train_D_net(inshape):
     gen_img_logit = D_net_model(gen_img)
     anie_smooth_logit = D_net_model(anie_smooth)
 
-    output=layers.concatenate([anie_logit, anie_gray_logit,gen_img_logit,anie_smooth_logit], axis=-1)
+    return tf.keras.models.Model(inputs=[anie_img,anie_gray,anie_smooth,gen_img], outputs=[anie_logit,anie_gray_logit,anie_smooth_logit,gen_img_logit])
 
-    return tf.keras.models.Model(inputs=[anie_img,anie_gray,anie_smooth,gen_img], outputs=output)
-
-def train_D_loss(_, y_pred):
-    anie_logit = y_pred[:,:,:,0]
-    anie_gray_logit = y_pred[:,:,:,1]
-    anie_smooth_logit = y_pred[:,:,:,2]
-    gen_img_logit  = y_pred[:,:,:,3]
-
-    real_loss = tf.reduce_mean(tf.square(anie_logit - 1.0))
-    gray_loss = tf.reduce_mean(tf.square(anie_gray_logit))
-    real_blur_loss = tf.reduce_mean(tf.square(anie_smooth_logit))
-    gen_loss = tf.reduce_mean(tf.square(gen_img_logit))
-    
-    loss = 1.7 * real_loss + 1.7 * gen_loss + 1.7 * gray_loss  +  0.8 * real_blur_loss
-    return loss*300

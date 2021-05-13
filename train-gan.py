@@ -16,19 +16,38 @@ h,w = 256, 256
 inshape = (h, w, 3)
 epochs = 100
 batch_size = 4
+
+def COMPILE(inshape,D_model,G_model):
+    real_img = G_model.input
+    anie_gray = layers.Input(shape=inshape,name = 'anie_gray')
+    gen_img = G_model(real_img)
+    gen_img_logit = D_model(gen_img)
+
+    vgg_model = vgg_net(inshape)
+
+    real_vgg_map = vgg_model(real_img)
+    anie_vgg_map = vgg_model(anie_gray)
+    gen_vgg_map = vgg_model(gen_img)
+
+    output=layers.concatenate([real_vgg_map,gen_vgg_map,anie_vgg_map], axis=-1)
+    output2=layers.concatenate([real_img,gen_img], axis=-1)
+    return tf.keras.models.Model(inputs=[real_img,anie_gray], outputs=[output,output2,gen_img_logit])
+
 #compile model
 with tf.device('/cpu:0'):
     train_D_model = train_D_net(inshape)
-    train_D_model.compile(Adam(lr=0.00016), loss=train_D_loss)
+    train_D_model.compile(Adam(lr=4e-5), loss=['mse','mse','mse','mse'],loss_weights=[2,2,1,2])
+    D_model = tf.keras.models.Model(inputs=train_D_model.layers[4].input,outputs=train_D_model.layers[4].output)
 
-    train_G_model = train_G_net(inshape)
-    train_G_model.compile(Adam(lr=0.00008), loss=[train_G_loss,Gan_loss])
-    #freeze the vgg map
-    train_G_model.layers[6].trainable=False
-    train_G_model.summary()
-    #get the G_net
-    G_model = tf.keras.models.Model(inputs=train_G_model.layers[0].input,outputs=train_G_model.layers[1].output)
+    G_model = G_net(inshape)
     G_model.load_weights('models/G_weights_pre.h5')
+    gan_model = COMPILE(inshape,D_model,G_model)
+    gan_model.summary()
+    gan_model.layers[3].trainable=False#VGG-net
+    gan_model.layers[5].trainable=False#D—net
+    gan_model.compile(Adam(lr=2e-5), loss=[style_loss,color_loss,'mse'],loss_weights=[1,3,5])
+    
+    D_model.summary()
 
 #img_list
 realdir = 'dataset/train_photo'
@@ -40,8 +59,13 @@ smooth_list = os.listdir(smoothdir)
 
 #output
 gen_logit_mask = np.ones((batch_size, h//4, w//4 ,1))
-g_out_mask = np.zeros((batch_size, h//4, w//4 ,1536))
-d_out_mask = np.zeros((batch_size, h//4, w//4 ,4))
+g_out_mask1 = np.zeros((batch_size, h//4, w//4 ,1536))
+g_out_mask2 = np.zeros((batch_size, h, w ,6))
+
+d_out_mask1 = np.ones((batch_size, h//4, w//4 ,1))
+d_out_mask2 = np.zeros((batch_size, h//4, w//4 ,1))
+d_out_mask3 = np.zeros((batch_size, h//4, w//4 ,1))
+d_out_mask4 = np.zeros((batch_size, h//4, w//4 ,1))
 
 #g_input
 real_img = np.zeros((batch_size, h, w ,3))
@@ -52,26 +76,24 @@ anie_smooth = np.zeros((batch_size, h, w ,3))
 gen_img_logit = np.zeros((batch_size, h//4, w//4 ,1))
 
 for epoch in range(epochs):
-    for i in range(0,len(real_list),batch_size):
+    for i in range(0,len(anie_list)-5,batch_size):
         start_time = time.time()
         real_list = shuffle(real_list)
-        anie_list = shuffle(anie_list)
-        smooth_list = shuffle(smooth_list)
+
         #img data load
         for j in range(batch_size):
-            real_path = realdir + '/' + real_list[j]
+            real_path = realdir + '/' + real_list[i+j]
             real_src = cv.imread(real_path)
 
-            anie_path = aniedir + '/' + anie_list[j]
+            anie_path = aniedir + '/' + anie_list[i+j]
             anie_src = cv.imread(anie_path)
             anie_src_gray = cv.cvtColor(anie_src, cv.COLOR_BGR2GRAY)
 
             anie_src = anie_src.astype(np.float64)
-            
-            
+                        
             gray_src = cv.merge([anie_src_gray,anie_src_gray,anie_src_gray])
 
-            smooth_path = smoothdir + '/' + smooth_list[j]
+            smooth_path = smoothdir + '/' + smooth_list[i+j]
             smooth_src = cv.imread(smooth_path)
 
             #load to [-1,1]
@@ -86,21 +108,21 @@ for epoch in range(epochs):
         
         
         #  Train D
+        D_model.trainable=True
         gen_img = G_model.predict(real_img)
-        d_loss = train_D_model.train_on_batch([anie_img,anie_gray,anie_smooth,gen_img], d_out_mask)
+        d_loss = train_D_model.train_on_batch([anie_img,anie_gray,anie_smooth,gen_img], [d_out_mask1,d_out_mask2,d_out_mask3,d_out_mask4])
         # ---------------------
         
-        #  Train G        
-        all_logit = train_D_model.predict([anie_img,anie_gray,anie_smooth,gen_img])
-        gen_img_logit = np.expand_dims(all_logit[..., 3],axis=3)
-        g_loss = train_G_model.train_on_batch([real_img,anie_gray,gen_img_logit], [g_out_mask, gen_logit_mask])
+        #  Train G
+        D_model.trainable=False
+        g_loss = gan_model.train_on_batch([real_img,anie_gray], [g_out_mask1,g_out_mask2, gen_logit_mask])
+
         # -----------------
         elapsed_time = time.time() - start_time
 
         print ("[Epoch %d/%d] [Batch %d/%d] [D loss: %f] [G loss: %f] time: %s" 
-        % (epoch,epochs,i, len(real_list),d_loss,g_loss[0],elapsed_time))
+        % (epoch,epochs,i, len(anie_list),d_loss[0],g_loss[0],elapsed_time))
 
         
-    if epoch % 5 == 0:
-        train_D_model.save_weights('models/D_weights_' + str(epoch) + '.h5')
-        G_model.save_weights('models/G_weights_' + str(epoch) + '.h5')
+    D_model.save_weights('models/D_weights_' + str(epoch) + '.h5')
+    G_model.save_weights('models/G_weights_' + str(epoch) + '.h5')
