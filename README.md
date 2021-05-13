@@ -20,14 +20,18 @@ Usage
 2. run edge_smooth.py to generate the edage smooth images of the style images.
 3. run train-init.py to initialize the weight of the G_net.
 4. run train-gan.py to train the GAN model.
-5. After training, run test.py to convert the image style in the test_img catalog.
+5. run test.py to convert the image style in the test_img catalog.
 
 Results
 -----
-Using different datasets and different parameter to train the models, you can get different image styles. Here is a simple example
-![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/sample_1.jpg)
-![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/sample_2.jpg)
-
+Using different datasets and different parameter to train the models, you can get different image styles.  
+The effect of the model is as follows(convert photo to Anime Style).
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/test_img/1.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/1.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/test_img/2.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/2.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/test_img/3.jpg)
+![image](https://github.com/Enyokid/keras-gan-style/blob/main/results/3.jpg)
 
 Acknowledgment
 -----
