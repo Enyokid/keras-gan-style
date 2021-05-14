@@ -30,17 +30,16 @@ for p in range(len(data_list)):
     inshape = (h, w, 3)
 
     #compile model
-    train_G_model = train_G_net(inshape)
-    G_model = tf.keras.models.Model(inputs=train_G_model.layers[0].input,outputs=train_G_model.layers[1].output)
+    G_model = G_net(inshape)
     G_model.load_weights('models/G_weights_pretrain.h5')
-    #读取图片
+    #process img
     src = cv.imread(img_path)
     rawsrc = cv.resize(src,(w,h))
     src = 1/127.5 * rawsrc - 1
     X = np.expand_dims(src,axis=0)
     gen_img_logit = np.ones((1, h//4, w//4 ,1))
 
-    #推理
+    #convert
     gen_img = G_model.predict([X,X,gen_img_logit])
     print(np.shape(gen_img))
 
