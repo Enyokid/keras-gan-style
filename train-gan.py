@@ -45,7 +45,7 @@ with tf.device('/cpu:0'):
     gan_model.summary()
     gan_model.layers[3].trainable=False#VGG-net
     gan_model.layers[5].trainable=False#D—net
-    gan_model.compile(Adam(lr=2e-5), loss=[style_loss,color_loss,'mse'],loss_weights=[1,3,5])
+    gan_model.compile(Adam(lr=2e-5), loss=[style_loss,color_loss,'mse'],loss_weights=[1,10,250])
     
     D_model.summary()
 
